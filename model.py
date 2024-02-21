@@ -13,27 +13,27 @@ class VoxelDecoder(nn.Module):
         
         # layer 1
         self.layer1 = nn.Sequential(
-            nn.ConvTranspose3d(512, 256, kernel_size=4, stride=2, padding=1, bias=False),
-            nn.BatchNorm3d(256),
+            nn.ConvTranspose3d(64, 32, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm3d(32),
             nn.ReLU(inplace=True)
         )
         self.layer2 = nn.Sequential(
-            nn.ConvTranspose3d(256, 128, kernel_size=4, stride=2, padding=1, bias=False),
-            nn.BatchNorm3d(128),
+            nn.ConvTranspose3d(32, 16, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm3d(16),
             nn.ReLU(inplace=True)
         )
         self.layer3 = nn.Sequential(
-            nn.ConvTranspose3d(128, 64, kernel_size=4, stride=2, padding=1, bias=False),
-            nn.BatchNorm3d(64),
+            nn.ConvTranspose3d(16, 8, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm3d(8),
             nn.ReLU(inplace=True)
         )
         self.layer4 = nn.Sequential(
-            nn.ConvTranspose3d(64, 32, kernel_size=4, stride=2, padding=1, bias=False),
-            nn.BatchNorm3d(32),
+            nn.ConvTranspose3d(8, 4, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm3d(4),
             nn.Sigmoid()
         )
         self.layer5 = nn.Sequential(
-            nn.ConvTranspose3d(32, 1, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.ConvTranspose3d(4, 1, kernel_size=4, stride=2, padding=1, bias=False),
             nn.Sigmoid()
         )
         
@@ -48,15 +48,15 @@ class VoxelDecoder(nn.Module):
         """
         # Input: b x 512
         # Output: b x 32 x 32 x 32
-        # size: 512 x 1 x 1 x 1
-        out1 = self.layer1(encoded_feat.view(-1, 512, 1, 1, 1))
-        # size: 256 x 2 x 2 x 2
+        # size: 64 x 2 x 2 x 2
+        out1 = self.layer1(encoded_feat.view(-1, 64, 2, 2, 2))
+        # size: 32 x 4 x 4 x 4
         out2 = self.layer2(out1)
-        # size: 128 x 4 x 4 x 4
+        # size: 16 x 8 x 8 x 8
         out3 = self.layer3(out2)
-        # size: 64 x 8 x 8 x 8
+        # size: 8 x 16 x 16 x 16
         out4 = self.layer4(out3)
-        # size: 32 x 16 x 16 x 16
+        # size: 4 x 32 x 32 x 32
         out5 = self.layer5(out4)
         
         if debug:
