@@ -10,8 +10,6 @@ def voxel_loss(voxel_src,voxel_tgt):
 	
  	# Binary cross entropy loss
 	BCE_loss = torch.nn.BCELoss()
-		
-	voxel_src = torch.sigmoid(voxel_src)
 	loss = BCE_loss(voxel_src, voxel_tgt)	
 	return loss
 
