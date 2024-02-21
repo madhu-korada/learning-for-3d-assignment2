@@ -9,7 +9,6 @@ import pytorch3d
 class VoxelDecoder(nn.Module):
     def __init__(self):
         super(VoxelDecoder, self).__init__()
-        # self.device = args.device
         
         # layer 1
         self.layer1 = nn.Sequential(
@@ -56,7 +55,7 @@ class VoxelDecoder(nn.Module):
         out3 = self.layer3(out2)
         # size: 8 x 16 x 16 x 16
         out4 = self.layer4(out3)
-        # size: 4 x 32 x 32 x 32
+        # size: 1 x 32 x 32 x 32
         out5 = self.layer5(out4)
         
         if debug:
@@ -72,7 +71,16 @@ class PointCloudDecoder(nn.Module):
     def __init__(self, n_points):
         super(PointCloudDecoder, self).__init__()
         self.n_points = n_points
-    
+        
+        self.layer1 = nn.Sequential(
+            nn.Linear(512, 1024),
+            nn.ReLU()
+        )
+        self.layer2 = nn.Sequential(
+            nn.Linear(1024, n_points*3),
+            nn.ReLU()
+        )        
+        
     def forward(self, encoded_feat, debug=False):
         """
         This function takes in the encoded feature and returns the point cloud prediction
@@ -84,12 +92,29 @@ class PointCloudDecoder(nn.Module):
         """
         # Input: b x 512
         # Output: b x n_points x 3
+        out1 = self.layer1(encoded_feat)
+        out2 = self.layer2(out1)
         
-
+        if debug:
+            print("Layer 1: ", out1.shape)
+            print("Layer 2: ", out2.shape)
+        
+        return out2
+        
 class MeshDecoder(nn.Module):
-    def __init__(self, device):
+    def __init__(self, device, out_shape):
         super(MeshDecoder, self).__init__()
         self.device = device
+        self.out_shape = out_shape
+
+        self.layer1 = nn.Sequential(
+            nn.Linear(512, 1024),
+            nn.ReLU()
+        )
+        self.layer2 = nn.Sequential(
+            nn.Linear(1024, self.out_shape),
+            nn.ReLU()
+        )
     
     def forward(self, encoded_feat, debug=False):
         """
@@ -102,13 +127,14 @@ class MeshDecoder(nn.Module):
         """
         # Input: b x 512
         # Output: b x mesh_pred.verts_packed().shape[0] x 3
-        # try different mesh initializations
-        mesh_pred = ico_sphere(4, self.device)
-        return mesh_pred.verts_packed().shape[0] * 3
-    
-
+        out1 = self.layer1(encoded_feat)
+        out2 = self.layer2(out1)
         
+        if debug:
+            print("Layer 1: ", out1.shape)
+            print("Layer 2: ", out2.shape)
         
+        return out2       
 
 class SingleViewto3D(nn.Module):
     def __init__(self, args):
@@ -131,7 +157,7 @@ class SingleViewto3D(nn.Module):
             # Output: b x args.n_points x 3  
             self.n_point = args.n_points
             # TODO:
-            # self.decoder =             
+            self.decoder = PointCloudDecoder(self.n_point)
             
         elif args.type == "mesh":
             # Input: b x 512
@@ -140,7 +166,8 @@ class SingleViewto3D(nn.Module):
             mesh_pred = ico_sphere(4, self.device)
             self.mesh_pred = pytorch3d.structures.Meshes(mesh_pred.verts_list()*args.batch_size, mesh_pred.faces_list()*args.batch_size)
             # TODO:
-            # self.decoder =             
+            out_shape = 3*mesh_pred.verts_packed().shape[0]
+            self.decoder = MeshDecoder(self.device, out_shape)
 
     def forward(self, images, args):
         results = dict()
@@ -164,12 +191,12 @@ class SingleViewto3D(nn.Module):
 
         elif args.type == "point":
             # TODO:
-            # pointclouds_pred =             
+            pointclouds_pred = self.decoder(encoded_feat)       
             return pointclouds_pred
 
         elif args.type == "mesh":
             # TODO:
-            # deform_vertices_pred =             
+            deform_vertices_pred = self.decoder(encoded_feat)
             mesh_pred = self.mesh_pred.offset_verts(deform_vertices_pred.reshape([-1,3]))
             return  mesh_pred          
 
