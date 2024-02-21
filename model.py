@@ -33,7 +33,7 @@ class VoxelDecoder(nn.Module):
             nn.Sigmoid()
         )
         self.layer5 = nn.Sequential(
-            nn.ConvTranspose3d(4, 1, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.ConvTranspose3d(4, 1, kernel_size=1, bias=False),
             nn.Sigmoid()
         )
         
