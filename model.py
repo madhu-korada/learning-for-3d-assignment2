@@ -36,11 +36,7 @@ class VoxelDecoder(nn.Module):
             nn.ConvTranspose3d(32, 1, kernel_size=4, stride=2, padding=1, bias=False),
             nn.Sigmoid()
         )
-            #nn.BatchNorm3d(16),
-        self.layer6 = nn.Sequential(
-            nn.ConvTranspose3d(16, 1, kernel_size=4, stride=2, padding=1, bias=False),
-            nn.Sigmoid()
-        )
+        
     def forward(self, encoded_feat, debug=False):
         """
         This function takes in the encoded feature and returns the voxel prediction
@@ -71,7 +67,46 @@ class VoxelDecoder(nn.Module):
             print("Layer 5: ", out5.shape)
             
         return out5
+
+class PointCloudDecoder(nn.Module):
+    def __init__(self, n_points):
+        super(PointCloudDecoder, self).__init__()
+        self.n_points = n_points
+    
+    def forward(self, encoded_feat, debug=False):
+        """
+        This function takes in the encoded feature and returns the point cloud prediction
         
+        @param encoded_feat: b x 512
+        @param debug: boolean
+        
+        @return out: b x n_points x 3
+        """
+        # Input: b x 512
+        # Output: b x n_points x 3
+        
+
+class MeshDecoder(nn.Module):
+    def __init__(self, device):
+        super(MeshDecoder, self).__init__()
+        self.device = device
+    
+    def forward(self, encoded_feat, debug=False):
+        """
+        This function takes in the encoded feature and returns the mesh prediction
+        
+        @param encoded_feat: b x 512
+        @param debug: boolean
+        
+        @return out: b x mesh_pred.verts_packed().shape[0] x 3
+        """
+        # Input: b x 512
+        # Output: b x mesh_pred.verts_packed().shape[0] x 3
+        # try different mesh initializations
+        mesh_pred = ico_sphere(4, self.device)
+        return mesh_pred.verts_packed().shape[0] * 3
+    
+
         
         
 
