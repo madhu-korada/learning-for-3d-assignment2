@@ -33,6 +33,7 @@ def get_args_parser():
     parser.add_argument('--load_feat', action='store_true') 
     parser.add_argument("--device", default="cuda", type=str)
     parser.add_argument("--full_dataset", default=False, type=bool)
+    parser.add_argument("--use_wandb", action="store_true") # Use wandb for logging
     return parser
 
 
@@ -72,12 +73,13 @@ def calculate_loss(predictions, ground_truth, args):
 
 def train_model(args):
     # Initialize wandb
-    wandb.init(
-        # Set the project name 
-        project="learning-for-3d-assignment2", 
-        # Set the experiment name
-        config=args
-    )
+    if args.use_wandb:
+        wandb.init(
+            # Set the project name 
+            project="learning-for-3d-assignment2", 
+            # Set the experiment name
+            config=args
+        )
     
     r2n2_dataset = R2N2(
         "train",
@@ -143,7 +145,8 @@ def train_model(args):
         loss_vis = loss.cpu().item()
 
         # Log metrics to wandb
-        wandb.log({"loss": loss_vis, "time": total_time, "iteration": step})
+        if args.use_wandb:
+            wandb.log({"loss": loss_vis, "time": total_time, "iteration": step})
 
         if (step % args.save_freq) == 0 and step > 0:
             print(f"Saving checkpoint at step {step}")
@@ -162,7 +165,8 @@ def train_model(args):
         )
 
     print("Done!")
-    wandb.finish()
+    if args.use_wandb:
+        wandb.finish()
 
 
 if __name__ == "__main__":
