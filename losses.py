@@ -16,7 +16,12 @@ def voxel_loss(voxel_src,voxel_tgt):
 def chamfer_loss(point_cloud_src, point_cloud_tgt, debug=False):
 	# point_cloud_src, point_cloud_src: b x n_points x 3  
 	# implement chamfer loss from scratch
-	point_cloud_src = point_cloud_src.reshape(-1, point_cloud_src.shape[-1]//3, 3)
+
+	# If the point clouds are not in the right shape, reshape them
+	# Fix for mesh vs point cloud
+	if point_cloud_src.shape != point_cloud_tgt.shape:
+		point_cloud_src = point_cloud_src.reshape(-1, point_cloud_src.shape[-1]//3, 3)
+  
 	len_src = torch.full((point_cloud_src.shape[0],), point_cloud_src.shape[1], dtype=torch.int64, device=point_cloud_src.device)
 	len_tgt = torch.full((point_cloud_tgt.shape[0],), point_cloud_tgt.shape[1], dtype=torch.int64, device=point_cloud_tgt.device)
 	# d_chamfer = sum_i(min||x_j - y_j||^2) + sum_j(||x_i - y_i||^2)
