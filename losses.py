@@ -13,18 +13,23 @@ def voxel_loss(voxel_src,voxel_tgt):
 	loss = BCE_loss(voxel_src, voxel_tgt)	
 	return loss
 
-def chamfer_loss(point_cloud_src,point_cloud_tgt,debug=False):
+def chamfer_loss(point_cloud_src, point_cloud_tgt, debug=False):
 	# point_cloud_src, point_cloud_src: b x n_points x 3  
 	# implement chamfer loss from scratch
-
+	point_cloud_src = point_cloud_src.reshape(-1, point_cloud_src.shape[-1]//3, 3)
+	len_src = torch.full((point_cloud_src.shape[0],), point_cloud_src.shape[1], dtype=torch.int64, device=point_cloud_src.device)
+	len_tgt = torch.full((point_cloud_tgt.shape[0],), point_cloud_tgt.shape[1], dtype=torch.int64, device=point_cloud_tgt.device)
 	# d_chamfer = sum_i(min||x_j - y_j||^2) + sum_j(||x_i - y_i||^2)
 	# calculate pairwise distances
 	# for each point in source, find the closest point in target
-	src_dists, src_idx, src_nn = pytorch3d.ops.knn_points(point_cloud_src, point_cloud_tgt, K=1)
+	knn_src = pytorch3d.ops.knn_points(point_cloud_src, point_cloud_tgt, lengths1=len_src, lengths2=len_tgt, K=1)
 	# for each point in target, find the closest point in source
-	tgt_dists, tgt_idx, tgt_nn = pytorch3d.ops.knn_points(point_cloud_tgt, point_cloud_src, K=1)
+	knn_tgt = pytorch3d.ops.knn_points(point_cloud_tgt, point_cloud_src, lengths1=len_tgt, lengths2=len_src, K=1)
 	# sum the distances and return
-	# we can do mean because the number of points is same
+	src_dists = knn_src.dists[..., 0]  # (N, S)
+	tgt_dists = knn_tgt.dists[..., 0]  # (N, S)
+	
+ 	# we can do mean because the number of points is same
 	loss_chamfer = src_dists.mean() + tgt_dists.mean()
 	if debug:
 		chamfer_dist_p3d = pytorch3d.loss.chamfer_distance(point_cloud_src, point_cloud_tgt)
