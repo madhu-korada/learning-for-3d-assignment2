@@ -70,7 +70,7 @@ class VoxelDecoder(nn.Module):
             print("Layer 4: ", out4.shape)
             print("Layer 5: ", out5.shape)
             
-        return out
+        return out5
         
         
         
