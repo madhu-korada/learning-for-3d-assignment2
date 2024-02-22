@@ -77,9 +77,13 @@ class PointCloudDecoder(nn.Module):
             nn.ReLU()
         )
         self.layer2 = nn.Sequential(
-            nn.Linear(1024, n_points*3),
+            nn.Linear(1024, 2048),
             nn.ReLU()
-        )        
+        )
+        self.layer3 = nn.Sequential(
+            nn.Linear(2048, n_points*3),
+            nn.ReLU()
+        ) 
         
     def forward(self, encoded_feat, debug=False):
         """
@@ -94,12 +98,13 @@ class PointCloudDecoder(nn.Module):
         # Output: b x n_points x 3
         out1 = self.layer1(encoded_feat)
         out2 = self.layer2(out1)
+        out3 = self.layer3(out2)
         
         if debug:
             print("Layer 1: ", out1.shape)
             print("Layer 2: ", out2.shape)
-        
-        return out2
+            print("Layer 3: ", out3.shape)
+        return out3
         
 class MeshDecoder(nn.Module):
     def __init__(self, device, out_shape):
@@ -112,9 +117,14 @@ class MeshDecoder(nn.Module):
             nn.ReLU()
         )
         self.layer2 = nn.Sequential(
-            nn.Linear(1024, self.out_shape),
+            nn.Linear(1024, 2048),
             nn.ReLU()
         )
+        self.layer3 = nn.Sequential(
+            nn.Linear(2048, self.out_shape),
+            nn.Tanh()
+        )
+        # tanh activation
     
     def forward(self, encoded_feat, debug=False):
         """
@@ -129,12 +139,14 @@ class MeshDecoder(nn.Module):
         # Output: b x mesh_pred.verts_packed().shape[0] x 3
         out1 = self.layer1(encoded_feat)
         out2 = self.layer2(out1)
+        out3 = self.layer3(out2)
         
         if debug:
             print("Layer 1: ", out1.shape)
             print("Layer 2: ", out2.shape)
+            print("Layer 3: ", out3.shape)
         
-        return out2       
+        return out3     
 
 class SingleViewto3D(nn.Module):
     def __init__(self, args):
