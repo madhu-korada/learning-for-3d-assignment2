@@ -34,6 +34,7 @@ def get_args_parser():
     parser.add_argument("--device", default="cuda", type=str)
     parser.add_argument("--full_dataset", default=False, type=bool)
     parser.add_argument("--use_wandb", action="store_true") # Use wandb for logging
+    parser.add_argument("--run_id", default=None, type=str)
     return parser
 
 
@@ -74,12 +75,22 @@ def calculate_loss(predictions, ground_truth, args):
 def train_model(args):
     # Initialize wandb
     if args.use_wandb:
-        wandb.init(
-            # Set the project name 
-            project="learning-for-3d-assignment2", 
-            # Set the experiment name
-            config=args
-        )
+        if args.run_id:
+            wandb.init(
+                # Set the project name 
+                project="learning-for-3d-assignment2", 
+                # Set the experiment name
+                config=args,
+                id=args.run_id, 
+                resume="must"
+            )
+        else:
+            wandb.init(
+                # Set the project name 
+                project="learning-for-3d-assignment2", 
+                # Set the experiment name
+                config=args
+            )
     
     r2n2_dataset = R2N2(
         "train",
