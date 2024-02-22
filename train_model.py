@@ -109,6 +109,7 @@ def train_model(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)  # to use with ViTs
     start_iter = 0
     start_time = time.time()
+    best_loss = float('inf')  # Initialize best loss to a very high value
 
     if args.load_checkpoint:
         checkpoint = torch.load(f"checkpoint_{args.type}.pth")
@@ -163,6 +164,20 @@ def train_model(args):
             "[%4d/%4d]; ttime: %.0f (%.2f, %.2f); loss: %.3f"
             % (step, args.max_iter, total_time, read_time, iter_time, loss_vis)
         )
+
+        # Check if current model is the best
+        if loss_vis < best_loss:
+            best_loss = loss_vis
+            print(f"New best model with loss {best_loss} at step {step}")
+            torch.save(
+                {
+                    "step": step,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "loss": best_loss,
+                },
+                f"best_model_{args.type}.pth",
+            )
 
     print("Done!")
     if args.use_wandb:
