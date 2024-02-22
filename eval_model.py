@@ -12,6 +12,8 @@ import mcubes
 import utils_vox
 import matplotlib.pyplot as plt 
 
+import train_model 
+
 def get_args_parser():
     parser = argparse.ArgumentParser('Singleto3D', add_help=False)
     parser.add_argument('--arch', default='resnet18', type=str)
@@ -19,7 +21,7 @@ def get_args_parser():
     parser.add_argument('--batch_size', default=1, type=int)
     parser.add_argument('--num_workers', default=0, type=int)
     parser.add_argument('--type', default='vox', choices=['vox', 'point', 'mesh'], type=str)
-    parser.add_argument('--n_points', default=5000, type=int)
+    parser.add_argument('--n_points', default=1000, type=int)
     parser.add_argument('--w_chamfer', default=1.0, type=float)
     parser.add_argument('--w_smooth', default=0.1, type=float)  
     parser.add_argument('--load_checkpoint', action='store_true')  
@@ -50,6 +52,9 @@ def save_plot(thresholds, avg_f1_score, args):
 
 def compute_sampling_metrics(pred_points, gt_points, thresholds, eps=1e-8):
     metrics = {}
+    
+    if pred_points.shape != gt_points.shape:
+        pred_points = pred_points.reshape(-1, pred_points.shape[-1]//3, 3)
     lengths_pred = torch.full(
         (pred_points.shape[0],), pred_points.shape[1], dtype=torch.int64, device=pred_points.device
     )
@@ -86,9 +91,11 @@ def evaluate(predictions, mesh_gt, thresholds, args):
     if args.type == "vox":
         voxels_src = predictions
         H,W,D = voxels_src.shape[2:]
-        vertices_src, faces_src = mcubes.marching_cubes(voxels_src.detach().cpu().squeeze().numpy(), isovalue=0.5)
+        vertices_src, faces_src = mcubes.marching_cubes(voxels_src.detach().cpu().squeeze().numpy(), isovalue=0.3)
         vertices_src = torch.tensor(vertices_src).float()
         faces_src = torch.tensor(faces_src.astype(int))
+        if vertices_src.shape[0] == 0 or faces_src.shape[0] == 0:
+            return None
         mesh_src = pytorch3d.structures.Meshes([vertices_src], [faces_src])
         pred_points = sample_points_from_meshes(mesh_src, args.n_points)
         pred_points = utils_vox.Mem2Ref(pred_points, H, W, D)
@@ -145,26 +152,30 @@ def evaluate_model(args):
         feed_dict = next(eval_loader)
 
         images_gt, mesh_gt = preprocess(feed_dict, args)
-
+        # images_gt, mesh_gt = train_model.preprocess(feed_dict, args)
+        
         read_time = time.time() - read_start_time
 
         predictions = model(images_gt, args)
 
         if args.type == "vox":
             predictions = predictions.permute(0,1,4,3,2)
-
+        # print(predictions.shape, mesh_gt.shape)
         metrics = evaluate(predictions, mesh_gt, thresholds, args)
 
-        # TODO:
+        # # TODO:
         # if (step % args.vis_freq) == 0:
         #     # visualization block
-        #     #  rend = 
+        #     rend = 
         #     plt.imsave(f'vis/{step}_{args.type}.png', rend)
-      
+
 
         total_time = time.time() - start_time
         iter_time = time.time() - iter_start_time
 
+        if metrics is None:
+            print("Skipping empty mesh")
+            continue
         f1_05 = metrics['F1@0.050000']
         avg_f1_score_05.append(f1_05)
         avg_p_score.append(torch.tensor([metrics["Precision@%f" % t] for t in thresholds]))
