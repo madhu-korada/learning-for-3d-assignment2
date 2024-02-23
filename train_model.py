@@ -4,6 +4,7 @@ import time
 import dataset_location
 import losses
 import torch
+from torch.optim.lr_scheduler import StepLR
 from model import SingleViewto3D
 from pytorch3d.datasets.r2n2.utils import collate_batched_R2N2
 from pytorch3d.ops import sample_points_from_meshes
@@ -18,7 +19,7 @@ def get_args_parser():
     parser = argparse.ArgumentParser("Singleto3D", add_help=False)
     # Model parameters
     parser.add_argument("--arch", default="resnet18", type=str)
-    parser.add_argument("--lr", default=4e-4, type=float)
+    parser.add_argument("--lr", default=4e-3, type=float)
     parser.add_argument("--max_iter", default=100000, type=int)
     parser.add_argument("--batch_size", default=32, type=int)
     parser.add_argument("--num_workers", default=4, type=int)
@@ -118,6 +119,9 @@ def train_model(args):
 
     # ============ preparing optimizer ... ============
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)  # to use with ViTs
+    # Define the learning rate scheduler
+    scheduler = StepLR(optimizer, step_size=100, gamma=0.1)  # Decays the learning rate by a factor of 0.1 every 100 steps
+
     start_iter = 0
     start_time = time.time()
     best_loss = float('inf')  # Initialize best loss to a very high value
@@ -150,7 +154,10 @@ def train_model(args):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
+        
+        # Update the learning rate
+        scheduler.step()
+        
         total_time = time.time() - start_time
         iter_time = time.time() - iter_start_time
 
