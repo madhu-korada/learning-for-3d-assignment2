@@ -82,7 +82,7 @@ class PointCloudDecoder(nn.Module):
         )
         self.layer3 = nn.Sequential(
             nn.Linear(2048, n_points*3),
-            nn.ReLU()
+            # nn.ReLU()
         ) 
         
     def forward(self, encoded_feat, debug=False):
