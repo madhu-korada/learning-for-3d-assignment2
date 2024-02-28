@@ -12,12 +12,13 @@ import mcubes
 import utils_vox
 import matplotlib.pyplot as plt 
 
-import train_model 
+import train_model
+from hw1_main import render_mesh, render_point_clouds, render_vox
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Singleto3D', add_help=False)
     parser.add_argument('--arch', default='resnet18', type=str)
-    parser.add_argument('--vis_freq', default=1000, type=int)
+    parser.add_argument('--vis_freq', default=50, type=int)
     parser.add_argument('--batch_size', default=1, type=int)
     parser.add_argument('--num_workers', default=0, type=int)
     parser.add_argument('--type', default='vox', choices=['vox', 'point', 'mesh'], type=str)
@@ -29,7 +30,7 @@ def get_args_parser():
     parser.add_argument('--load_feat', action='store_true') 
     return parser
 
-def preprocess(feed_dict, args):
+def preprocess(feed_dict, args, flip=False):
     for k in ['images']:
         feed_dict[k] = feed_dict[k].to(args.device)
 
@@ -37,7 +38,19 @@ def preprocess(feed_dict, args):
     mesh = feed_dict['mesh']
     if args.load_feat:
         images = torch.stack(feed_dict['feats']).to(args.device)
-
+    if flip:
+        images = torch.flip(images, [3])
+        # save flipped image
+        # Assuming images_gt is a PyTorch tensor of shape [B, C, H, W] and normalized in [0, 1]
+        # Select the first image from the batch for visualization purposes
+        image_to_save = images[0].cpu().detach()
+        if image_to_save.shape[0] == 3:
+            image_to_save = image_to_save.permute(1, 2, 0)
+        image_to_save = image_to_save.numpy()
+        # Construct a dynamic file name
+        file_name = f'images/input_image_at_step_flipped.png'
+        plt.imsave(file_name, image_to_save)
+        
     return images, mesh
 
 def save_plot(thresholds, avg_f1_score, args):
@@ -91,7 +104,7 @@ def evaluate(predictions, mesh_gt, thresholds, args):
     if args.type == "vox":
         voxels_src = predictions
         H,W,D = voxels_src.shape[2:]
-        vertices_src, faces_src = mcubes.marching_cubes(voxels_src.detach().cpu().squeeze().numpy(), isovalue=0.3)
+        vertices_src, faces_src = mcubes.marching_cubes(voxels_src.detach().cpu().squeeze().numpy(), isovalue=0.2)
         vertices_src = torch.tensor(vertices_src).float()
         faces_src = torch.tensor(faces_src.astype(int))
         if vertices_src.shape[0] == 0 or faces_src.shape[0] == 0:
@@ -112,7 +125,7 @@ def evaluate(predictions, mesh_gt, thresholds, args):
 
 
 def evaluate_model(args):
-    r2n2_dataset = R2N2("test", dataset_location.SHAPENET_PATH, dataset_location.R2N2_PATH, dataset_location.SPLITS_PATH, return_voxels=True, return_feats=args.load_feat)
+    r2n2_dataset = R2N2("test", dataset_location.SHAPENET_PATH, dataset_location.R2N2_PATH, dataset_location.SPLITS_PATH, return_voxels=True, return_feats=args.load_feat, flip_images=True)
 
     loader = torch.utils.data.DataLoader(
         r2n2_dataset,
@@ -138,7 +151,7 @@ def evaluate_model(args):
     avg_r_score = []
 
     if args.load_checkpoint:
-        checkpoint = torch.load(f'checkpoint_{args.type}.pth')
+        checkpoint = torch.load(f'best_model_{args.type}.pth')
         model.load_state_dict(checkpoint['model_state_dict'])
         print(f"Succesfully loaded iter {start_iter}")
     
@@ -163,12 +176,35 @@ def evaluate_model(args):
         # print(predictions.shape, mesh_gt.shape)
         metrics = evaluate(predictions, mesh_gt, thresholds, args)
 
-        # # TODO:
-        # if (step % args.vis_freq) == 0:
-        #     # visualization block
-        #     rend = 
-        #     plt.imsave(f'vis/{step}_{args.type}.png', rend)
-
+        # TODO:
+        if (step % args.vis_freq) == 0:
+            # Assuming images_gt is a PyTorch tensor of shape [B, C, H, W] and normalized in [0, 1]
+            # Select the first image from the batch for visualization purposes
+            image_to_save = images_gt[0].cpu().detach()
+            if image_to_save.shape[0] == 3:  # If image has 3 channels (C, H, W)
+                image_to_save = image_to_save.permute(1, 2, 0)  # Change to (H, W, C) for saving
+            image_to_save = image_to_save.numpy()  # Convert to numpy array
+            
+            # Construct a dynamic file name
+            file_name = f'images/input_image_at_step_{step}.png'
+            plt.imsave(file_name, image_to_save)
+        
+            if args.type == "vox":
+                predictions = predictions.to(args.device)
+                render_vox(predictions[0], file_name=f'{step}_{args.type}.gif')
+                pass
+            elif args.type == "point":
+                with torch.no_grad():
+                    gt_points = sample_points_from_meshes(mesh_gt, args.n_points)
+                    predictions = predictions.reshape(-1, predictions.shape[-1]//3, 3)
+                    render_point_clouds(gt_points, file_name=f'{step}_{args.type}_gt.gif')
+                    render_point_clouds(predictions, file_name=f'{step}_{args.type}.gif')
+            elif args.type == "mesh":
+                with torch.no_grad():
+                    mesh_gt = mesh_gt.to(args.device)
+                    # print(predictions.device.type, mesh_gt.device.type)
+                    render_mesh(predictions, file_name=f'{step}_{args.type}.gif')
+                    render_mesh(mesh_gt, file_name=f'{step}_{args.type}_gt.gif')
 
         total_time = time.time() - start_time
         iter_time = time.time() - iter_start_time

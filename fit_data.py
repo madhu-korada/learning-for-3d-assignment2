@@ -9,11 +9,9 @@ from pytorch3d.ops import sample_points_from_meshes
 from pytorch3d.structures import Meshes
 import dataset_location
 import torch
+import torch.nn.functional as F
 
-
-
-
-
+from hw1_main import render_mesh, render_point_clouds, render_vox
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Model Fit', add_help=False)
@@ -27,6 +25,9 @@ def get_args_parser():
     return parser
 
 def fit_mesh(mesh_src, mesh_tgt, args):
+    with torch.no_grad():
+        render_mesh(mesh_src, file_name="src_before.gif")
+        render_mesh(mesh_tgt, file_name="target.gif")
     start_iter = 0
     start_time = time.time()
 
@@ -59,10 +60,16 @@ def fit_mesh(mesh_src, mesh_tgt, args):
     
     mesh_src.offset_verts_(deform_vertices_src)
 
+    with torch.no_grad():
+        render_mesh(mesh_src, file_name="predicted.gif")
     print('Done!')
 
 
 def fit_pointcloud(pointclouds_src, pointclouds_tgt, args):
+    with torch.no_grad():
+        # visualize pointcloud before gradient descent
+        render_point_clouds(pointclouds_src, file_name="src_before.gif")
+        render_point_clouds(pointclouds_tgt, file_name="target.gif")
     start_iter = 0
     start_time = time.time()    
     optimizer = torch.optim.Adam([pointclouds_src], lr = args.lr)
@@ -82,10 +89,17 @@ def fit_pointcloud(pointclouds_src, pointclouds_tgt, args):
 
         print("[%4d/%4d]; ttime: %.0f (%.2f); loss: %.3f" % (step, args.max_iter, total_time,  iter_time, loss_vis))
     
+    with torch.no_grad():
+        # visualize after gradient descent
+        render_point_clouds(pointclouds_src, file_name="predicted.gif")
     print('Done!')
 
 
 def fit_voxel(voxels_src, voxels_tgt, args):
+    # visualize voxel as mesh before gradient descent
+    # NOTE: voxels_src is a tensor of shape b x 32 x 32 x 32
+    render_vox(F.sigmoid(voxels_src), file_name="src_before.gif")
+    render_vox(voxels_tgt, file_name="target.gif")
     start_iter = 0
     start_time = time.time()    
     optimizer = torch.optim.Adam([voxels_src], lr = args.lr)
@@ -104,6 +118,8 @@ def fit_voxel(voxels_src, voxels_tgt, args):
         loss_vis = loss.cpu().item()
 
         print("[%4d/%4d]; ttime: %.0f (%.2f); loss: %.3f" % (step, args.max_iter, total_time,  iter_time, loss_vis))
+     # visualize after gradient descent
+    render_vox(F.sigmoid(voxels_src), file_name="predicted.gif")
     
     print('Done!')
 
@@ -148,10 +164,6 @@ def train_model(args):
 
         # fitting
         fit_mesh(mesh_src, mesh_tgt, args)        
-
-
-    
-    
 
 
 if __name__ == '__main__':
