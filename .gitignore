@@ -5,3 +5,9 @@ wandb/
 
 __pycache__/
 */__pycache__/
+
+*.png
+
+vis/
+bkp/
+images/

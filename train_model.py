@@ -4,6 +4,7 @@ import time
 import dataset_location
 import losses
 import torch
+import pickle
 from torch.optim.lr_scheduler import StepLR
 from model import SingleViewto3D
 from pytorch3d.datasets.r2n2.utils import collate_batched_R2N2
@@ -19,7 +20,7 @@ def get_args_parser():
     parser = argparse.ArgumentParser("Singleto3D", add_help=False)
     # Model parameters
     parser.add_argument("--arch", default="resnet18", type=str)
-    parser.add_argument("--lr", default=4e-3, type=float)
+    parser.add_argument("--lr", default=4e-4, type=float)
     parser.add_argument("--max_iter", default=100000, type=int)
     parser.add_argument("--batch_size", default=32, type=int)
     parser.add_argument("--num_workers", default=4, type=int)
@@ -36,6 +37,7 @@ def get_args_parser():
     parser.add_argument("--full_dataset", default=False, type=bool)
     parser.add_argument("--use_wandb", action="store_true") # Use wandb for logging
     parser.add_argument("--run_id", default=None, type=str)
+    parser.add_argument("--use_pickle", action="store_true")
     return parser
 
 
@@ -93,23 +95,32 @@ def train_model(args):
                 config=args
             )
     
+    if args.use_pickle:
+        voxels_flag = False
+        batch_size = 1
+        num_workers = 0
+    else:
+        voxels_flag = True
+        batch_size = args.batch_size
+        num_workers = args.num_workers
+    
     r2n2_dataset = R2N2(
         "train",
         dataset_location.SHAPENET_PATH,
         dataset_location.R2N2_PATH,
         dataset_location.SPLITS_PATH,
-        return_voxels=True,
+        return_voxels=voxels_flag,
         return_feats=args.load_feat,
     )
 
     loader = torch.utils.data.DataLoader(
         r2n2_dataset,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
+        batch_size=batch_size,
+        num_workers=num_workers,
         collate_fn=collate_batched_R2N2,
-        pin_memory=True,
+        pin_memory=voxels_flag,
         drop_last=True,
-        shuffle=True,
+        shuffle=voxels_flag,
     )
     train_loader = iter(loader)
 

@@ -68,6 +68,7 @@ class R2N2(ShapeNetBase):  # pragma: no cover
         voxels_rel_path: str = "ShapeNetVoxels",
         load_textures: bool = False,
         texture_resolution: int = 4,
+        flip_images=False
     ) -> None:
         """
         Store each object's synset id and models id the given directories.
@@ -103,6 +104,9 @@ class R2N2(ShapeNetBase):  # pragma: no cover
         self.load_textures = load_textures
         self.texture_resolution = texture_resolution
         self.return_feats = return_feats
+        self.voxel_cache = {}  # Initialize an empty cache
+        self.flip_images = flip_images
+
         # Examine if split is valid.
         if split not in ["train", "val", "test"]:
             raise ValueError("split has to be one of (train, val, test).")
@@ -291,6 +295,9 @@ class R2N2(ShapeNetBase):  # pragma: no cover
                 # Read image.
                 image_path = path.join(rendering_path, "%02d.png" % i)
                 raw_img = Image.open(image_path)
+                # FLIP IMAGES
+                if self.flip_images:
+                    raw_img = raw_img.transpose(Image.FLIP_TOP_BOTTOM)
                 image = torch.from_numpy(np.array(raw_img) / 255.0)[..., :3]
                 images.append(image.to(dtype=torch.float32))
                 feats.append(all_feats[i].to(dtype=torch.float32))
